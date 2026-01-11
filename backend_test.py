@@ -128,9 +128,19 @@ class BackendTester:
         """Test logout endpoint"""
         print("\n3. Testing POST /api/auth/logout")
         try:
+            # Create a separate session token for logout test
+            logout_token = f"logout_session_{uuid.uuid4().hex}"
+            logout_session = {
+                "user_id": self.user_id,
+                "session_token": logout_token,
+                "expires_at": datetime.now(timezone.utc) + timedelta(days=7),
+                "created_at": datetime.now(timezone.utc)
+            }
+            self.db.user_sessions.insert_one(logout_session)
+            
             response = await self.client.post(
                 f"{API_BASE}/auth/logout",
-                headers=self.get_auth_headers()
+                headers={"Authorization": f"Bearer {logout_token}"}
             )
             
             if response.status_code == 200:
