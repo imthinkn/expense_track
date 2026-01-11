@@ -9,9 +9,11 @@ import {
   RefreshControl,
   Dimensions,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthStore } from '../../store/authStore';
 import { Ionicons } from '@expo/vector-icons';
-import { BarChart, PieChart } from 'react-native-gifted-charts';
+import { PieChart } from 'react-native-gifted-charts';
+import { format } from 'date-fns';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
 const { width } = Dimensions.get('window');
@@ -19,10 +21,9 @@ const { width } = Dimensions.get('window');
 export default function HomeScreen() {
   const { user, sessionToken, logout } = useAuthStore();
   const [cashFlow, setCashFlow] = useState<any>(null);
-  const [insight, setInsight] = useState<string | null>(null);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [insightLoading, setInsightLoading] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -31,7 +32,7 @@ export default function HomeScreen() {
   const loadData = async () => {
     try {
       setLoading(true);
-      await Promise.all([fetchCashFlow(), fetchInsight()]);
+      await Promise.all([fetchCashFlow(), fetchTransactions()]);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -43,11 +44,8 @@ export default function HomeScreen() {
   const fetchCashFlow = async () => {
     try {
       const response = await fetch(`${API_URL}/api/analytics/cash-flow`, {
-        headers: {
-          Authorization: `Bearer ${sessionToken}`,
-        },
+        headers: { Authorization: `Bearer ${sessionToken}` },
       });
-
       if (response.ok) {
         const data = await response.json();
         setCashFlow(data);
@@ -57,23 +55,17 @@ export default function HomeScreen() {
     }
   };
 
-  const fetchInsight = async () => {
+  const fetchTransactions = async () => {
     try {
-      setInsightLoading(true);
-      const response = await fetch(`${API_URL}/api/analytics/insights`, {
-        headers: {
-          Authorization: `Bearer ${sessionToken}`,
-        },
+      const response = await fetch(`${API_URL}/api/transactions?limit=3`, {
+        headers: { Authorization: `Bearer ${sessionToken}` },
       });
-
       if (response.ok) {
         const data = await response.json();
-        setInsight(data.insight);
+        setTransactions(data);
       }
     } catch (error) {
-      console.error('Error fetching insight:', error);
-    } finally {
-      setInsightLoading(false);
+      console.error('Error fetching transactions:', error);
     }
   };
 
@@ -84,178 +76,210 @@ export default function HomeScreen() {
 
   if (loading && !cashFlow) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6C5CE7" />
-      </View>
+      <LinearGradient colors={['#7C3AED', '#5B21B6', '#4C1D95']} style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#fff" />
+        </View>
+      </LinearGradient>
     );
   }
 
-  const pieData = cashFlow?.top_categories?.slice(0, 5).map((cat: any, index: number) => ({
-    value: cat.amount,
-    label: cat.name,
-    color: ['#FF6B6B', '#4ECDC4', '#FFE66D', '#A8E6CF', '#95E1D3'][index],
-  })) || [];
+  const netWorth = (cashFlow?.savings || 0);
+  const milestone = 100000;
+  const progress = Math.min((netWorth / milestone) * 100, 100);
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6C5CE7" />}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Hello, {user?.name?.split(' ')[0] || 'User'}!</Text>
-          <Text style={styles.subGreeting}>Here's your financial overview</Text>
-        </View>
-        <TouchableOpacity onPress={logout} style={styles.logoutButton}>
-          <Ionicons name="log-out-outline" size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Cash Flow Summary */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>This Month</Text>
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryItem}>
-            <Ionicons name="arrow-down" size={24} color="#00B894" />
-            <Text style={styles.summaryLabel}>Income</Text>
-            <Text style={[styles.summaryValue, { color: '#00B894' }]}>
-              ₹{cashFlow?.total_income?.toLocaleString('en-IN') || '0'}
-            </Text>
+    <LinearGradient colors={['#7C3AED', '#5B21B6', '#4C1D95']} style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" />}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.greeting}>Hello,</Text>
+            <Text style={styles.userName}>{user?.name?.split(' ')[0] || 'User'}!</Text>
           </View>
-          <View style={styles.summaryItem}>
-            <Ionicons name="arrow-up" size={24} color="#FF6B6B" />
-            <Text style={styles.summaryLabel}>Expenses</Text>
-            <Text style={[styles.summaryValue, { color: '#FF6B6B' }]}>
-              ₹{cashFlow?.total_expenses?.toLocaleString('en-IN') || '0'}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.savingsContainer}>
-          <Text style={styles.savingsLabel}>Net Savings</Text>
-          <Text style={[styles.savingsValue, { color: (cashFlow?.savings || 0) >= 0 ? '#00B894' : '#FF6B6B' }]}>
-            ₹{cashFlow?.savings?.toLocaleString('en-IN') || '0'}
-          </Text>
-          <View style={styles.savingsRateContainer}>
-            <Text style={styles.savingsRate}>
-              Savings Rate: {cashFlow?.savings_rate?.toFixed(1) || '0'}%
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* AI Insight */}
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={styles.cardTitleRow}>
-            <Ionicons name="bulb" size={24} color="#FDCB6E" />
-            <Text style={styles.cardTitle}> AI Insight</Text>
-          </View>
-          <TouchableOpacity onPress={fetchInsight} disabled={insightLoading}>
-            <Ionicons name="refresh" size={20} color="#6C5CE7" />
+          <TouchableOpacity onPress={logout} style={styles.notificationButton}>
+            <Ionicons name="notifications-outline" size={26} color="#fff" />
           </TouchableOpacity>
         </View>
-        {insightLoading ? (
-          <ActivityIndicator size="small" color="#6C5CE7" style={{ marginTop: 16 }} />
-        ) : (
-          <Text style={styles.insightText}>{insight || 'Start tracking expenses to get insights!'}</Text>
-        )}
-      </View>
 
-      {/* Top Categories Chart */}
-      {pieData.length > 0 && (
+        {/* Net Worth Circular Chart */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Top Spending Categories</Text>
+          <Text style={styles.cardTitle}>Net Worth</Text>
           <View style={styles.chartContainer}>
-            <PieChart
-              data={pieData}
-              donut
-              radius={80}
-              innerRadius={50}
-              centerLabelComponent={() => (
-                <View>
-                  <Text style={styles.centerLabel}>Total</Text>
-                  <Text style={styles.centerValue}>₹{cashFlow?.total_expenses?.toFixed(0) || '0'}</Text>
+            <View style={styles.circularChart}>
+              <View style={[styles.progressCircle, { borderColor: `rgba(139, 92, 246, ${progress / 100})` }]}>
+                <View style={styles.innerCircle}>
+                  <Text style={styles.netWorthAmount}>₹{Math.abs(netWorth).toLocaleString('en-IN')}</Text>
+                  <Text style={styles.netWorthLabel}>Current</Text>
                 </View>
-              )}
-            />
-          </View>
-          <View style={styles.legendContainer}>
-            {pieData.map((item: any, index: number) => (
-              <View key={index} style={styles.legendItem}>
-                <View style={[styles.legendColor, { backgroundColor: item.color }]} />
-                <Text style={styles.legendText}>{item.label}</Text>
-                <Text style={styles.legendValue}>₹{item.value.toFixed(0)}</Text>
               </View>
-            ))}
+            </View>
+            <View style={styles.milestoneContainer}>
+              <View style={styles.milestoneItem}>
+                <Ionicons name="flag" size={20} color="#8B5CF6" />
+                <Text style={styles.milestoneText}>Target: ₹{milestone.toLocaleString('en-IN')}</Text>
+              </View>
+              <View style={styles.milestoneItem}>
+                <Ionicons name="trending-up" size={20} color="#10B981" />
+                <Text style={styles.milestoneText}>Progress: {progress.toFixed(1)}%</Text>
+              </View>
+              <View style={styles.milestoneItem}>
+                <Ionicons name="cash" size={20} color="#F59E0B" />
+                <Text style={styles.milestoneText}>Remaining: ₹{Math.max(milestone - netWorth, 0).toLocaleString('en-IN')}</Text>
+              </View>
+            </View>
           </View>
         </View>
-      )}
 
-      {/* Quick Actions */}
-      <View style={styles.actionsContainer}>
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.actionsGrid}>
-          <TouchableOpacity style={styles.actionCard}>
-            <Ionicons name="add-circle" size={32} color="#6C5CE7" />
-            <Text style={styles.actionText}>Add Transaction</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionCard}>
-            <Ionicons name="stats-chart" size={32} color="#6C5CE7" />
-            <Text style={styles.actionText}>View Reports</Text>
-          </TouchableOpacity>
+        {/* Recent Expenses */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Recent Expenses</Text>
+            <TouchableOpacity>
+              <Text style={styles.seeAllText}>See All</Text>
+            </TouchableOpacity>
+          </View>
+          {transactions.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="wallet-outline" size={48} color="rgba(139, 92, 246, 0.5)" />
+              <Text style={styles.emptyText}>No transactions yet</Text>
+            </View>
+          ) : (
+            transactions.slice(0, 3).map((txn) => (
+              <View key={txn.transaction_id} style={styles.expenseItem}>
+                <View style={styles.expenseIcon}>
+                  <Ionicons
+                    name={txn.type === 'income' ? 'arrow-down' : 'arrow-up'}
+                    size={20}
+                    color={txn.type === 'income' ? '#10B981' : '#EF4444'}
+                  />
+                </View>
+                <View style={styles.expenseDetails}>
+                  <Text style={styles.expenseCategory}>{txn.category}</Text>
+                  <Text style={styles.expenseDate}>{format(new Date(txn.date), 'MMM dd')}</Text>
+                </View>
+                <Text style={[styles.expenseAmount, { color: txn.type === 'income' ? '#10B981' : '#EF4444' }]}>
+                  {txn.type === 'income' ? '+' : '-'}₹{txn.amount.toLocaleString('en-IN')}
+                </Text>
+              </View>
+            ))
+          )}
         </View>
-      </View>
-    </ScrollView>
+
+        {/* Goals */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Financial Goals</Text>
+          <View style={styles.goalItem}>
+            <View style={styles.goalHeader}>
+              <View style={styles.goalIcon}>
+                <Ionicons name="home" size={20} color="#8B5CF6" />
+              </View>
+              <View style={styles.goalInfo}>
+                <Text style={styles.goalName}>Emergency Fund</Text>
+                <Text style={styles.goalProgress}>₹45,000 / ₹100,000</Text>
+              </View>
+            </View>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: '45%' }]} />
+            </View>
+            <Text style={styles.goalPercentage}>45% Complete</Text>
+          </View>
+          <View style={styles.goalItem}>
+            <View style={styles.goalHeader}>
+              <View style={styles.goalIcon}>
+                <Ionicons name="car" size={20} color="#8B5CF6" />
+              </View>
+              <View style={styles.goalInfo}>
+                <Text style={styles.goalName}>Car Purchase</Text>
+                <Text style={styles.goalProgress}>₹200,000 / ₹500,000</Text>
+              </View>
+            </View>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: '40%' }]} />
+            </View>
+            <Text style={styles.goalPercentage}>40% Complete</Text>
+          </View>
+        </View>
+
+        {/* Insurance Coverage */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Insurance Coverage</Text>
+          <View style={styles.insuranceGrid}>
+            <View style={styles.insuranceCard}>
+              <Ionicons name="medical" size={32} color="#10B981" />
+              <Text style={styles.insuranceLabel}>Health</Text>
+              <Text style={styles.insuranceAmount}>₹5 Lac</Text>
+            </View>
+            <View style={styles.insuranceCard}>
+              <Ionicons name="shield-checkmark" size={32} color="#3B82F6" />
+              <Text style={styles.insuranceLabel}>Term Life</Text>
+              <Text style={styles.insuranceAmount}>₹1 Cr</Text>
+            </View>
+            <View style={styles.insuranceCard}>
+              <Ionicons name="car-sport" size={32} color="#F59E0B" />
+              <Text style={styles.insuranceLabel}>Vehicle</Text>
+              <Text style={styles.insuranceAmount}>Own Damage</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={{ height: 100 }} />
+      </ScrollView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f0f',
   },
-  contentContainer: {
+  scrollContent: {
     padding: 16,
-    paddingBottom: 32,
+    paddingTop: 50,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f0f0f',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 24,
-    marginTop: 16,
   },
   greeting: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  userName: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#fff',
-  },
-  subGreeting: {
-    fontSize: 14,
-    color: '#95a5a6',
     marginTop: 4,
   },
-  logoutButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#2c2c2c',
+  notificationButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   card: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 20,
     padding: 20,
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -263,129 +287,179 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  cardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   cardTitle: {
     fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F1B24',
+    marginBottom: 16,
+  },
+  seeAllText: {
+    fontSize: 14,
+    color: '#8B5CF6',
     fontWeight: '600',
-    color: '#fff',
-    marginBottom: 16,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 16,
-  },
-  summaryItem: {
-    alignItems: 'center',
-  },
-  summaryLabel: {
-    fontSize: 14,
-    color: '#95a5a6',
-    marginTop: 8,
-  },
-  summaryValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginTop: 4,
-  },
-  savingsContainer: {
-    alignItems: 'center',
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#2c2c2c',
-  },
-  savingsLabel: {
-    fontSize: 14,
-    color: '#95a5a6',
-  },
-  savingsValue: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginTop: 8,
-  },
-  savingsRateContainer: {
-    marginTop: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#2c2c2c',
-    borderRadius: 12,
-  },
-  savingsRate: {
-    fontSize: 12,
-    color: '#ecf0f1',
-  },
-  insightText: {
-    fontSize: 15,
-    color: '#ecf0f1',
-    lineHeight: 24,
   },
   chartContainer: {
     alignItems: 'center',
-    marginVertical: 16,
   },
-  centerLabel: {
+  circularChart: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  progressCircle: {
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    borderWidth: 12,
+    borderColor: '#8B5CF6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  innerCircle: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: '#F3E8FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  netWorthAmount: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#1F1B24',
+  },
+  netWorthLabel: {
     fontSize: 12,
-    color: '#95a5a6',
-    textAlign: 'center',
+    color: '#6B7280',
+    marginTop: 4,
   },
-  centerValue: {
+  milestoneContainer: {
+    width: '100%',
+  },
+  milestoneItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 12,
+  },
+  milestoneText: {
+    marginLeft: 12,
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  emptyText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#9CA3AF',
+  },
+  expenseItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  expenseIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  expenseDetails: {
+    flex: 1,
+  },
+  expenseCategory: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1F1B24',
+  },
+  expenseDate: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
+  expenseAmount: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#fff',
-    textAlign: 'center',
   },
-  legendContainer: {
-    marginTop: 16,
+  goalItem: {
+    marginBottom: 20,
   },
-  legendItem: {
+  goalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-  },
-  legendColor: {
-    width: 16,
-    height: 16,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  legendText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#ecf0f1',
-  },
-  legendValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  actionsContainer: {
-    marginTop: 8,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
     marginBottom: 12,
   },
-  actionsGrid: {
+  goalIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F3E8FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  goalInfo: {
+    flex: 1,
+  },
+  goalName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1F1B24',
+  },
+  goalProgress: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#8B5CF6',
+    borderRadius: 4,
+  },
+  goalPercentage: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  insuranceGrid: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     gap: 12,
   },
-  actionCard: {
+  insuranceCard: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#F9FAFB',
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
     alignItems: 'center',
   },
-  actionText: {
-    fontSize: 14,
-    color: '#ecf0f1',
+  insuranceLabel: {
+    fontSize: 12,
+    color: '#6B7280',
     marginTop: 8,
-    textAlign: 'center',
+    fontWeight: '500',
+  },
+  insuranceAmount: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#1F1B24',
+    marginTop: 4,
   },
 });
