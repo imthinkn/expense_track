@@ -98,6 +98,23 @@ class InsightResponse(BaseModel):
     insight: str
     generated_at: datetime
 
+class UserProfile(BaseModel):
+    user_id: str
+    monthly_salary: float
+    total_investments: float
+    total_loans: float
+    health_insurance: float
+    life_insurance: float
+    profile_complete: bool
+    updated_at: datetime
+
+class ProfileCreate(BaseModel):
+    monthly_salary: float
+    total_investments: float = 0
+    total_loans: float = 0
+    health_insurance: float
+    life_insurance: float = 0
+
 # ============ AUTH HELPERS ============
 
 async def get_current_user(authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)) -> User:
