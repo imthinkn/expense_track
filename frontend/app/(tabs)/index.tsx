@@ -8,6 +8,11 @@ import {
   ActivityIndicator,
   RefreshControl,
   Dimensions,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthStore } from '../../store/authStore';
@@ -24,6 +29,15 @@ export default function HomeScreen() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [profileComplete, setProfileComplete] = useState(false);
+  const [profileModal, setProfileModal] = useState(false);
+
+  // Profile form state
+  const [monthlySalary, setMonthlySalary] = useState('');
+  const [investments, setInvestments] = useState('');
+  const [loans, setLoans] = useState('');
+  const [healthInsurance, setHealthInsurance] = useState('');
+  const [lifeInsurance, setLifeInsurance] = useState('');
 
   useEffect(() => {
     loadData();
@@ -32,7 +46,7 @@ export default function HomeScreen() {
   const loadData = async () => {
     try {
       setLoading(true);
-      await Promise.all([fetchCashFlow(), fetchTransactions()]);
+      await Promise.all([fetchCashFlow(), fetchTransactions(), checkProfileComplete()]);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -66,6 +80,60 @@ export default function HomeScreen() {
       }
     } catch (error) {
       console.error('Error fetching transactions:', error);
+    }
+  };
+
+  const checkProfileComplete = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/profile`, {
+        headers: { Authorization: `Bearer ${sessionToken}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setProfileComplete(data.profile_complete || false);
+        if (data.monthly_salary) setMonthlySalary(data.monthly_salary.toString());
+        if (data.total_investments) setInvestments(data.total_investments.toString());
+        if (data.total_loans) setLoans(data.total_loans.toString());
+        if (data.health_insurance) setHealthInsurance(data.health_insurance.toString());
+        if (data.life_insurance) setLifeInsurance(data.life_insurance.toString());
+      }
+    } catch (error) {
+      console.error('Error checking profile:', error);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!monthlySalary || !healthInsurance) {
+      Alert.alert('Required Fields', 'Please fill in at least monthly salary and health insurance coverage');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({
+          monthly_salary: parseFloat(monthlySalary) || 0,
+          total_investments: parseFloat(investments) || 0,
+          total_loans: parseFloat(loans) || 0,
+          health_insurance: parseFloat(healthInsurance) || 0,
+          life_insurance: parseFloat(lifeInsurance) || 0,
+        }),
+      });
+
+      if (response.ok) {
+        setProfileComplete(true);
+        setProfileModal(false);
+        Alert.alert('Success', 'Your financial profile has been saved!');
+      } else {
+        Alert.alert('Error', 'Failed to save profile');
+      }
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      Alert.alert('Error', 'Failed to save profile');
     }
   };
 
@@ -105,6 +173,26 @@ export default function HomeScreen() {
             <Ionicons name="notifications-outline" size={26} color="#fff" />
           </TouchableOpacity>
         </View>
+
+        {/* Profile Completion Nudge */}
+        {!profileComplete && (
+          <TouchableOpacity
+            style={styles.nudgeCard}
+            onPress={() => setProfileModal(true)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.nudgeIconContainer}>
+              <Ionicons name="information-circle" size={28} color="#FBBF24" />
+            </View>
+            <View style={styles.nudgeContent}>
+              <Text style={styles.nudgeTitle}>Complete Your Profile</Text>
+              <Text style={styles.nudgeText}>
+                Add your salary, investments, loans & insurance to get personalized insights
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color="#fff" />
+          </TouchableOpacity>
+        )}
 
         {/* Net Worth Circular Chart */}
         <View style={styles.card}>
@@ -212,12 +300,12 @@ export default function HomeScreen() {
             <View style={styles.insuranceCard}>
               <Ionicons name="medical" size={32} color="#10B981" />
               <Text style={styles.insuranceLabel}>Health</Text>
-              <Text style={styles.insuranceAmount}>₹5 Lac</Text>
+              <Text style={styles.insuranceAmount}>₹{healthInsurance || '5'} Lac</Text>
             </View>
             <View style={styles.insuranceCard}>
               <Ionicons name="shield-checkmark" size={32} color="#3B82F6" />
               <Text style={styles.insuranceLabel}>Term Life</Text>
-              <Text style={styles.insuranceAmount}>₹1 Cr</Text>
+              <Text style={styles.insuranceAmount}>₹{lifeInsurance || '1'} Cr</Text>
             </View>
             <View style={styles.insuranceCard}>
               <Ionicons name="car-sport" size={32} color="#F59E0B" />
@@ -229,6 +317,122 @@ export default function HomeScreen() {
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Profile Completion Modal */}
+      <Modal
+        visible={profileModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setProfileModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalContainer}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Complete Your Profile</Text>
+              <TouchableOpacity onPress={() => setProfileModal(false)}>
+                <Ionicons name="close" size={28} color="#1F1B24" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSubtitle}>
+              Help us understand your finances better to provide personalized insights
+            </Text>
+
+            <ScrollView style={styles.formScroll} showsVerticalScrollIndicator={false}>
+              {/* Monthly Salary */}
+              <View style={styles.formSection}>
+                <View style={styles.formSectionHeader}>
+                  <Ionicons name="cash" size={24} color="#8B5CF6" />
+                  <Text style={styles.formSectionTitle}>Income</Text>
+                </View>
+                <Text style={styles.label}>Monthly Salary *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your monthly salary"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="numeric"
+                  value={monthlySalary}
+                  onChangeText={setMonthlySalary}
+                />
+              </View>
+
+              {/* Investments */}
+              <View style={styles.formSection}>
+                <View style={styles.formSectionHeader}>
+                  <Ionicons name="trending-up" size={24} color="#10B981" />
+                  <Text style={styles.formSectionTitle}>Investments</Text>
+                </View>
+                <Text style={styles.label}>Total Investments</Text>
+                <Text style={styles.hint}>Stocks, MF, FD, Gold, etc.</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter total investment value"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="numeric"
+                  value={investments}
+                  onChangeText={setInvestments}
+                />
+              </View>
+
+              {/* Loans */}
+              <View style={styles.formSection}>
+                <View style={styles.formSectionHeader}>
+                  <Ionicons name="card" size={24} color="#EF4444" />
+                  <Text style={styles.formSectionTitle}>Loans & Liabilities</Text>
+                </View>
+                <Text style={styles.label}>Total Outstanding Loans</Text>
+                <Text style={styles.hint}>Home loan, car loan, personal loan, etc.</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter total outstanding amount"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="numeric"
+                  value={loans}
+                  onChangeText={setLoans}
+                />
+              </View>
+
+              {/* Insurance */}
+              <View style={styles.formSection}>
+                <View style={styles.formSectionHeader}>
+                  <Ionicons name="shield-checkmark" size={24} color="#3B82F6" />
+                  <Text style={styles.formSectionTitle}>Insurance Coverage</Text>
+                </View>
+                <Text style={styles.label}>Health Insurance Cover *</Text>
+                <Text style={styles.hint}>In lakhs (e.g., 5 for ₹5 Lac)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter coverage in lakhs"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="numeric"
+                  value={healthInsurance}
+                  onChangeText={setHealthInsurance}
+                />
+
+                <Text style={[styles.label, { marginTop: 16 }]}>Life Insurance Cover</Text>
+                <Text style={styles.hint}>In crores (e.g., 1 for ₹1 Cr)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter coverage in crores"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="numeric"
+                  value={lifeInsurance}
+                  onChangeText={setLifeInsurance}
+                />
+              </View>
+
+              <View style={{ height: 20 }} />
+            </ScrollView>
+
+            <TouchableOpacity style={styles.submitButton} onPress={handleSaveProfile}>
+              <Text style={styles.submitButtonText}>Save Profile</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </LinearGradient>
   );
 }
@@ -269,6 +473,40 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // Nudge Card
+  nudgeCard: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(251, 191, 36, 0.15)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(251, 191, 36, 0.3)',
+  },
+  nudgeIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(251, 191, 36, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  nudgeContent: {
+    flex: 1,
+  },
+  nudgeTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  nudgeText: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.9)',
+    lineHeight: 18,
   },
   card: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -461,5 +699,84 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1F1B24',
     marginTop: 4,
+  },
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    maxHeight: '95%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1F1B24',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  formScroll: {
+    maxHeight: 500,
+  },
+  formSection: {
+    marginBottom: 24,
+  },
+  formSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  formSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F1B24',
+    marginLeft: 12,
+  },
+  label: {
+    fontSize: 14,
+    color: '#374151',
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  hint: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: '#1F1B24',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  submitButton: {
+    backgroundColor: '#7C3AED',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  submitButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#fff',
   },
 });
