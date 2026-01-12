@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../store/authStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,31 +17,32 @@ export default function LoginScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6C5CE7" />
-        <Text style={styles.loadingText}>Loading...</Text>
-      </View>
+      <LinearGradient colors={['#7C3AED', '#5B21B6', '#4C1D95']} style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#fff" />
+        </View>
+      </LinearGradient>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <LinearGradient colors={['#7C3AED', '#5B21B6', '#4C1D95']} style={styles.container}>
       <View style={styles.content}>
-        {/* Logo/Icon */}
-        <View style={styles.iconContainer}>
-          <Ionicons name="wallet" size={80} color="#6C5CE7" />
+        {/* App Logo/Name */}
+        <View style={styles.logoContainer}>
+          <View style={styles.iconCircle}>
+            <Ionicons name="wallet" size={60} color="#fff" />
+          </View>
+          <Text style={styles.appName}>Batua</Text>
+          <Text style={styles.tagline}>Your Smart Money Manager</Text>
         </View>
-
-        {/* Title */}
-        <Text style={styles.title}>FinanceTracker</Text>
-        <Text style={styles.subtitle}>Your Personal Finance Super App</Text>
 
         {/* Features */}
         <View style={styles.featuresContainer}>
-          <FeatureItem icon="trending-up" text="Track Expenses" />
-          <FeatureItem icon="analytics" text="Smart Insights" />
+          <FeatureItem icon="trending-up" text="Track Every Rupee" />
+          <FeatureItem icon="analytics" text="AI-Powered Insights" />
+          <FeatureItem icon="people" text="Split Bills Easily" />
           <FeatureItem icon="shield-checkmark" text="Secure & Private" />
-          <FeatureItem icon="pie-chart" text="Net Worth Tracking" />
         </View>
 
         {/* Login Button */}
@@ -50,24 +51,26 @@ export default function LoginScreen() {
           onPress={login}
           activeOpacity={0.8}
         >
-          <Ionicons name="logo-google" size={24} color="#fff" style={styles.googleIcon} />
+          <Ionicons name="logo-google" size={24} color="#7C3AED" style={styles.googleIcon} />
           <Text style={styles.loginButtonText}>Continue with Google</Text>
         </TouchableOpacity>
 
         {/* Trust Message */}
         <Text style={styles.trustText}>
-          <Ionicons name="lock-closed" size={14} color="#95a5a6" />
-          {' '}Your data is encrypted and secure
+          <Ionicons name="lock-closed" size={14} color="rgba(255, 255, 255, 0.7)" />
+          {' '}Bank-level security. Your data stays private.
         </Text>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
 function FeatureItem({ icon, text }: { icon: any; text: string }) {
   return (
     <View style={styles.featureItem}>
-      <Ionicons name={icon} size={24} color="#6C5CE7" />
+      <View style={styles.featureIconContainer}>
+        <Ionicons name={icon} size={20} color="#fff" />
+      </View>
       <Text style={styles.featureText}>{text}</Text>
     </View>
   );
@@ -76,18 +79,11 @@ function FeatureItem({ icon, text }: { icon: any; text: string }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f0f',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f0f0f',
-  },
-  loadingText: {
-    marginTop: 16,
-    color: '#fff',
-    fontSize: 16,
   },
   content: {
     flex: 1,
@@ -95,26 +91,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 32,
   },
-  iconContainer: {
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 60,
+  },
+  iconCircle: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(108, 92, 231, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
   },
-  title: {
-    fontSize: 32,
+  appName: {
+    fontSize: 48,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 8,
+    letterSpacing: 2,
+    fontStyle: 'italic',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
-  subtitle: {
+  tagline: {
     fontSize: 16,
-    color: '#95a5a6',
-    textAlign: 'center',
-    marginBottom: 48,
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginTop: 8,
+    fontWeight: '500',
   },
   featuresContainer: {
     width: '100%',
@@ -123,24 +127,33 @@ const styles = StyleSheet.create({
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 16,
+    marginBottom: 20,
+    paddingHorizontal: 8,
+  },
+  featureIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
   },
   featureText: {
-    marginLeft: 12,
     fontSize: 16,
-    color: '#ecf0f1',
+    color: '#fff',
+    fontWeight: '500',
   },
   loginButton: {
     flexDirection: 'row',
-    backgroundColor: '#6C5CE7',
+    backgroundColor: '#fff',
     paddingVertical: 16,
     paddingHorizontal: 32,
-    borderRadius: 12,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    shadowColor: '#6C5CE7',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -150,14 +163,15 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   loginButtonText: {
-    color: '#fff',
+    color: '#7C3AED',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   trustText: {
     marginTop: 24,
-    fontSize: 14,
-    color: '#95a5a6',
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
+    fontWeight: '500',
   },
 });
