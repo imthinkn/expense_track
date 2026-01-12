@@ -521,6 +521,59 @@ async def create_category(
     await db.categories.insert_one(category_doc)
     return Category(**category_doc)
 
+# ============ PROFILE ROUTES ============
+
+@api_router.get("/profile")
+async def get_profile(
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    """Get user profile"""
+    user = await get_current_user(authorization=authorization, session_token=session_token)
+    
+    profile = await db.user_profiles.find_one({"user_id": user.user_id}, {"_id": 0})
+    
+    if not profile:
+        return {
+            "profile_complete": False,
+            "monthly_salary": 0,
+            "total_investments": 0,
+            "total_loans": 0,
+            "health_insurance": 0,
+            "life_insurance": 0
+        }
+    
+    return profile
+
+@api_router.post("/profile")
+async def save_profile(
+    profile: ProfileCreate,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    """Save or update user profile"""
+    user = await get_current_user(authorization=authorization, session_token=session_token)
+    
+    profile_doc = {
+        "user_id": user.user_id,
+        "monthly_salary": profile.monthly_salary,
+        "total_investments": profile.total_investments,
+        "total_loans": profile.total_loans,
+        "health_insurance": profile.health_insurance,
+        "life_insurance": profile.life_insurance,
+        "profile_complete": True,
+        "updated_at": datetime.now(timezone.utc)
+    }
+    
+    # Upsert profile
+    await db.user_profiles.update_one(
+        {"user_id": user.user_id},
+        {"$set": profile_doc},
+        upsert=True
+    )
+    
+    return {"message": "Profile saved successfully", "profile_complete": True}
+
 # Include the router in the main app
 app.include_router(api_router)
 
