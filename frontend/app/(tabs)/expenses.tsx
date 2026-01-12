@@ -273,32 +273,36 @@ export default function ExpensesScreen() {
       {/* Floating Action Button */}
       <View style={styles.fabContainer}>
         {/* Personal Expense Button */}
-        <Animated.View style={[styles.fabOption, { transform: [{ translateY: fabPersonalY }] }]}>
-          <TouchableOpacity
-            style={styles.fabOptionButton}
-            onPress={() => {
-              setPersonalExpenseModal(true);
-              toggleFAB();
-            }}
-          >
-            <Ionicons name="person" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.fabLabel}>Personal</Text>
-        </Animated.View>
+        {fabOpen && (
+          <Animated.View style={[styles.fabOption, { transform: [{ translateY: fabPersonalY }], opacity: fabOptionOpacity }]}>
+            <TouchableOpacity
+              style={styles.fabOptionButton}
+              onPress={() => {
+                setPersonalExpenseModal(true);
+                toggleFAB();
+              }}
+            >
+              <Ionicons name="person" size={24} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.fabLabel}>Personal</Text>
+          </Animated.View>
+        )}
 
         {/* Group Expense Button */}
-        <Animated.View style={[styles.fabOption, { transform: [{ translateY: fabGroupY }] }]}>
-          <TouchableOpacity
-            style={styles.fabOptionButton}
-            onPress={() => {
-              setGroupExpenseModal(true);
-              toggleFAB();
-            }}
-          >
-            <Ionicons name="people" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.fabLabel}>Group</Text>
-        </Animated.View>
+        {fabOpen && (
+          <Animated.View style={[styles.fabOption, { transform: [{ translateY: fabGroupY }], opacity: fabOptionOpacity }]}>
+            <TouchableOpacity
+              style={styles.fabOptionButton}
+              onPress={() => {
+                setGroupExpenseModal(true);
+                toggleFAB();
+              }}
+            >
+              <Ionicons name="people" size={24} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.fabLabel}>Group</Text>
+          </Animated.View>
+        )}
 
         {/* Main FAB */}
         <TouchableOpacity style={styles.fab} onPress={toggleFAB}>
