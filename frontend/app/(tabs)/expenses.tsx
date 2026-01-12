@@ -206,6 +206,11 @@ export default function ExpensesScreen() {
     outputRange: ['0deg', '45deg'],
   });
 
+  const fabOptionOpacity = fabAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+
   const filteredCategories = categories.filter((cat) => cat.type === selectedType);
 
   return (
